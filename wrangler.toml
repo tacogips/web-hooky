@@ -1,0 +1,54 @@
+#:schema node_modules/wrangler/config-schema.json
+# Cloudflare Workers deployment for web-hooky.
+#
+# The database id below is a placeholder until `wrangler d1 create` has run;
+# see README-cloudflare.md for the ordered setup steps.
+
+name = "web-hooky"
+main = "src/platform/cloudflare/worker.ts"
+compatibility_date = "2026-08-01"
+compatibility_flags = ["nodejs_compat"]
+
+# The built SolidJS admin UI. `run_worker_first` keeps /_admin/api on the Worker
+# instead of letting the asset server answer it.
+[assets]
+directory = "dist/admin-ui"
+binding = "ASSETS"
+run_worker_first = ["/_admin/api/*"]
+
+# D1 is the SQLite-equivalent database. `SqlDriver` is implemented over it in
+# src/platform/cloudflare/d1-driver.ts.
+[[d1_databases]]
+binding = "DB"
+database_name = "web-hooky"
+database_id = "PLACEHOLDER_REPLACED_BY_WRANGLER_D1_CREATE"
+migrations_dir = "migrations"
+
+# One Durable Object per destination holds that destination's /_ws/ subscribers.
+# A Worker isolate is per-request, so it cannot hold a long-lived socket itself.
+[[durable_objects.bindings]]
+name = "STREAM_HUB"
+class_name = "StreamHub"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["StreamHub"]
+
+# Workers has no in-process timers, so the retention sweeper and the relay
+# worker run from cron instead. WebhookyRuntime exposes both as plain methods
+# (sweepRetention / runRelayDeliveries) precisely so a scheduled trigger can
+# drive them; see design-docs/specs/notes.md, "Portability to serverless
+# targets".
+[triggers]
+crons = ["*/2 * * * *"]
+
+[vars]
+# Non-secret configuration. Every value has the same meaning as the environment
+# variable of the same name documented in design-docs/specs/command.md.
+WEBHOOKY_ADMIN_AUTH = "trusted-header"
+WEBHOOKY_RELAY_POLL_INTERVAL_SECONDS = "0"
+WEBHOOKY_RETENTION_SWEEP_INTERVAL_SECONDS = "0"
+
+# Secrets are NOT set here - `wrangler.toml` is committed. Set them with:
+#   wrangler secret put WEBHOOKY_ADMIN_BOOTSTRAP_KEY
+#   wrangler secret put WEBHOOKY_ADMIN_AUTH_SHARED_SECRET

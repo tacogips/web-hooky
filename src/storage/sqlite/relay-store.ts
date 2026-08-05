@@ -1,16 +1,14 @@
 /**
  * Relay and relay-delivery stores implemented on the SQL driver port.
  *
- * `claimDue` reads and leases inside a single transaction, so two workers (or
- * one worker overlapping with itself) cannot pick up the same delivery.
+ * `claimDue` selects and leases in a single `UPDATE ... RETURNING`, so two
+ * workers (or one worker overlapping with itself) cannot pick up the same
+ * delivery. Expressing it as one statement rather than a read-then-write
+ * transaction keeps it correct on drivers with no interactive transactions,
+ * such as Cloudflare D1.
  */
 import type { RelayDeliveryStore, RelayStore } from "../persistence";
-import {
-  boolToInt,
-  placeholders,
-  type SqlDriver,
-  type SqlParam,
-} from "../sql-driver";
+import { boolToInt, type SqlDriver, type SqlParam } from "../sql-driver";
 import {
   RelayDeliveryStatus,
   type RelayDeliveryRecord,
@@ -155,31 +153,43 @@ export function createRelayDeliveryStore(
       limit: number,
       leaseSeconds: number,
     ): Promise<readonly RelayDeliveryRecord[]> {
-      return driver.transaction(async (tx) => {
-        const rows = await tx.all<RelayDeliveryRow>(
-          `SELECT ${DELIVERY_COLUMNS} FROM relay_deliveries
-           WHERE status = ? AND next_attempt_at <= ?
-           ORDER BY next_attempt_at ASC, created_at ASC, id ASC
-           LIMIT ?`,
-          [RelayDeliveryStatus.Pending, nowSeconds, limit],
-        );
-        if (rows.length === 0) {
-          return [];
-        }
-        const ids = rows.map((row) => row.id);
-        // The lease keeps a claimed delivery out of the next batch even if the
-        // worker crashes mid-attempt; it becomes due again afterwards.
-        await tx.run(
+      // Selection and claim are one statement, so two workers cannot claim the
+      // same delivery even on a driver without interactive transactions: the
+      // UPDATE and its sub-select commit together, and RETURNING reports the
+      // post-update rows this caller actually won.
+      //
+      // The lease keeps a claimed delivery out of the next batch even if the
+      // worker crashes mid-attempt; it becomes due again afterwards.
+      return driver
+        .all<RelayDeliveryRow>(
           `UPDATE relay_deliveries
            SET attempts = attempts + 1, next_attempt_at = ?, updated_at = ?
-           WHERE id IN (${placeholders(ids.length)})`,
-          [nowSeconds + leaseSeconds, nowSeconds, ...ids],
+           WHERE id IN (
+             SELECT id FROM relay_deliveries
+             WHERE status = ? AND next_attempt_at <= ?
+             ORDER BY next_attempt_at ASC, created_at ASC, id ASC
+             LIMIT ?
+           )
+           RETURNING ${DELIVERY_COLUMNS}`,
+          [
+            nowSeconds + leaseSeconds,
+            nowSeconds,
+            RelayDeliveryStatus.Pending,
+            nowSeconds,
+            limit,
+          ],
+        )
+        .then((rows) =>
+          // RETURNING does not honour the sub-select's ORDER BY, so the batch
+          // is re-sorted into the due order the worker expects.
+          [...rows]
+            .sort(
+              (left, right) =>
+                left.created_at - right.created_at ||
+                (left.id < right.id ? -1 : left.id > right.id ? 1 : 0),
+            )
+            .map(toRelayDelivery),
         );
-        return rows.map((row) => ({
-          ...toRelayDelivery(row),
-          attempts: row.attempts + 1,
-        }));
-      });
     },
 
     async markDelivered(
@@ -249,28 +259,22 @@ export function createRelayDeliveryStore(
     },
 
     requeueFailed(relayId: string, nowSeconds: number): Promise<number> {
-      return driver.transaction(async (tx) => {
-        const rows = await tx.all<{ id: string }>(
-          "SELECT id FROM relay_deliveries WHERE relay_id = ? AND status = ?",
-          [relayId, RelayDeliveryStatus.Failed],
-        );
-        if (rows.length === 0) {
-          return 0;
-        }
-        await tx.run(
-          `UPDATE relay_deliveries
-           SET status = ?, attempts = 0, next_attempt_at = ?, updated_at = ?
-           WHERE relay_id = ? AND status = ?`,
-          [
-            RelayDeliveryStatus.Pending,
-            nowSeconds,
-            nowSeconds,
-            relayId,
-            RelayDeliveryStatus.Failed,
-          ],
-        );
-        return rows.length;
-      });
+      // One statement, so no transaction is needed: the UPDATE already reports
+      // how many rows it changed. Counting the selection separately would scan
+      // the table twice and, on a driver without interactive transactions
+      // (Cloudflare D1), could not be made atomic anyway.
+      return driver.runAffected(
+        `UPDATE relay_deliveries
+         SET status = ?, attempts = 0, next_attempt_at = ?, updated_at = ?
+         WHERE relay_id = ? AND status = ?`,
+        [
+          RelayDeliveryStatus.Pending,
+          nowSeconds,
+          nowSeconds,
+          relayId,
+          RelayDeliveryStatus.Failed,
+        ],
+      );
     },
 
     deleteExpired(

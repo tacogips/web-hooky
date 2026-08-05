@@ -1,9 +1,11 @@
 /**
  * Webhook record store implemented on the SQL driver port.
  *
- * `queryAndMark` performs the read and the fetched-marking inside a single
- * transaction so two concurrent `only_unfetched` readers cannot both receive
- * the same record as unfetched.
+ * `queryAndMark` claims records with a single `UPDATE ... WHERE fetched = 0
+ * ... RETURNING`, so two concurrent `only_unfetched` readers cannot both
+ * receive the same record as unfetched. One statement rather than a
+ * read-then-write transaction keeps that guarantee on drivers with no
+ * interactive transactions, such as Cloudflare D1.
  */
 import type { RecordStore } from "../persistence";
 import {
@@ -22,7 +24,15 @@ interface CompiledQuery {
   readonly params: readonly SqlParam[];
 }
 
-function compileQuery(query: RecordQuery): CompiledQuery {
+/** The `WHERE` fragment shared by the read and the claim, without the limit. */
+interface CompiledConditions {
+  readonly where: string;
+  readonly params: readonly SqlParam[];
+}
+
+const ORDER = "ORDER BY t DESC, id DESC";
+
+function compileConditions(query: RecordQuery): CompiledConditions {
   const conditions: string[] = ["destination_id = ?"];
   const params: SqlParam[] = [query.destinationId];
 
@@ -37,15 +47,30 @@ function compileQuery(query: RecordQuery): CompiledQuery {
     conditions.push("t <= ?");
     params.push(query.to);
   }
-  params.push(query.limit);
 
+  return { where: conditions.join(" AND "), params };
+}
+
+function compileQuery(query: RecordQuery): CompiledQuery {
+  const conditions = compileConditions(query);
   return {
     sql: `SELECT ${COLUMNS} FROM records
-          WHERE ${conditions.join(" AND ")}
-          ORDER BY t DESC, id DESC
+          WHERE ${conditions.where}
+          ${ORDER}
           LIMIT ?`,
-    params,
+    params: [...conditions.params, query.limit],
   };
+}
+
+/** Receipt order: newest first, ties broken by id, matching `ORDER`. */
+function byReceiptDescending(
+  left: WebhookRecord,
+  right: WebhookRecord,
+): number {
+  if (left.t !== right.t) {
+    return right.t - left.t;
+  }
+  return left.id < right.id ? 1 : left.id > right.id ? -1 : 0;
 }
 
 export function createRecordStore(driver: SqlDriver): RecordStore {
@@ -84,19 +109,56 @@ export function createRecordStore(driver: SqlDriver): RecordStore {
       return selectRecords(driver, query);
     },
 
-    queryAndMark(query: RecordQuery): Promise<readonly WebhookRecord[]> {
-      return driver.transaction(async (tx) => {
-        const records = await selectRecords(tx, query);
-        const unmarked = records.filter((record) => record.fetched === false);
-        if (unmarked.length > 0) {
-          await tx.run(
-            `UPDATE records SET fetched = 1
-             WHERE id IN (${placeholders(unmarked.length)})`,
-            unmarked.map((record) => record.id),
-          );
-        }
-        return records;
-      });
+    async queryAndMark(query: RecordQuery): Promise<readonly WebhookRecord[]> {
+      const conditions = compileConditions(query);
+      const window = `SELECT id FROM records
+                      WHERE ${conditions.where}
+                      ${ORDER}
+                      LIMIT ?`;
+
+      // The claim is one statement, so it is atomic on every driver, including
+      // those without interactive transactions (Cloudflare D1). `fetched = 0`
+      // inside the UPDATE is what makes it exclusive: of two concurrent
+      // readers, only the first matches a given row, so RETURNING hands each
+      // record to exactly one caller. That is the guarantee `only_unfetched`
+      // rests on.
+      const claimedRows = await driver.all<RecordRow>(
+        `UPDATE records SET fetched = 1
+         WHERE id IN (${window}) AND fetched = 0
+         RETURNING ${COLUMNS}`,
+        [...conditions.params, query.limit],
+      );
+      // RETURNING reports post-update rows, but the response must carry the
+      // value each record had *before* this call marked it - that is the only
+      // signal telling a client which records are new to it.
+      const claimed = claimedRows.map((row) => ({
+        ...toWebhookRecord(row),
+        fetched: false,
+      }));
+
+      if (query.onlyUnfetched) {
+        return claimed.sort(byReceiptDescending);
+      }
+
+      // A plain read also returns the already-fetched part of the window. Those
+      // rows are not being claimed, so they need no atomicity with the step
+      // above; the rows this call just marked are excluded by id.
+      const claimedIds = claimed.map((record) => record.id);
+      const exclusion =
+        claimedIds.length === 0
+          ? ""
+          : `AND id NOT IN (${placeholders(claimedIds.length)})`;
+      const alreadyFetched = await driver.all<RecordRow>(
+        `SELECT ${COLUMNS} FROM records
+         WHERE ${conditions.where} AND fetched = 1 ${exclusion}
+         ${ORDER}
+         LIMIT ?`,
+        [...conditions.params, ...claimedIds, query.limit],
+      );
+
+      return [...claimed, ...alreadyFetched.map(toWebhookRecord)]
+        .sort(byReceiptDescending)
+        .slice(0, query.limit);
     },
 
     countForDestination,
