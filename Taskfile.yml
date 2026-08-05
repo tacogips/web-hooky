@@ -1,0 +1,96 @@
+version: '3'
+
+vars:
+  PROJECT_NAME: web-hooky
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  install:
+    desc: Install dependencies
+    cmds:
+      - bun install
+
+  dev:
+    desc: Run in development mode with watch
+    cmds:
+      - bun run dev
+
+  build:
+    desc: Build the project
+    cmds:
+      - bun run build
+
+  start:
+    desc: Run the application
+    cmds:
+      - bun run start
+
+  test:
+    desc: Run tests with Vitest
+    cmds:
+      - bun run test
+
+  test-watch:
+    desc: Run tests in watch mode with Vitest
+    cmds:
+      - bun run test:watch
+
+  test-verbose:
+    desc: Run tests with verbose output
+    cmds:
+      - vitest run --reporter=verbose
+
+  test-ui:
+    desc: Run tests with Vitest UI
+    cmds:
+      - vitest --ui
+
+  typecheck:
+    desc: Run TypeScript type checking
+    cmds:
+      - bun run typecheck
+
+  fmt:
+    desc: Format code with Biome
+    cmds:
+      - bun run format
+
+  fmt-check:
+    desc: Check code formatting
+    cmds:
+      - bun run format:check
+
+  lint:
+    desc: Run all lints (Biome check + format check + typecheck)
+    cmds:
+      - biome check . --diagnostic-level=warn
+      - task: fmt-check
+      - task: typecheck
+
+  gitleaks:
+    desc: Scan staged changes for secrets before commit
+    cmds:
+      - gitleaks git --pre-commit --redact --staged --verbose
+
+  install-git-hooks:
+    desc: Install the Nix-managed pre-commit hook configuration
+    cmds:
+      - nix develop -c pre-commit install --install-hooks
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - bun run clean
+
+  ci:
+    desc: Run all CI checks
+    cmds:
+      - biome check . --diagnostic-level=warn
+      - task: fmt-check
+      - task: typecheck
+      - task: test
+      - task: build

@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# SvelteKit
+**/.svelte-kit/
+**/static/build/
+
+# Bun (binary lockfile - we use text lockfile bun.lock instead)
+bun.lockb
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Nix
+.direnv/
+result
+result-*
+/.pre-commit-config.yaml
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# Temporary files
+tmp/
+temp/
+.cache/
+
+# Implementation progress lock file
+impl-plans/.progress.lock
+
+# Private files
+**/.envrc.private*
+.private*/
