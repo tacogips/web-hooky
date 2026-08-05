@@ -20,9 +20,14 @@ tasks:
       - bun run dev
 
   build:
-    desc: Build the project
+    desc: Build the server bundle and the admin UI
     cmds:
       - bun run build
+
+  build-ui:
+    desc: Build the SolidJS admin UI into dist/admin-ui
+    cmds:
+      - bun run build:ui
 
   start:
     desc: Run the application
@@ -30,24 +35,14 @@ tasks:
       - bun run start
 
   test:
-    desc: Run tests with Vitest
+    desc: Run tests with bun test
     cmds:
       - bun run test
 
   test-watch:
-    desc: Run tests in watch mode with Vitest
+    desc: Run tests in watch mode with bun test
     cmds:
       - bun run test:watch
-
-  test-verbose:
-    desc: Run tests with verbose output
-    cmds:
-      - vitest run --reporter=verbose
-
-  test-ui:
-    desc: Run tests with Vitest UI
-    cmds:
-      - vitest --ui
 
   typecheck:
     desc: Run TypeScript type checking

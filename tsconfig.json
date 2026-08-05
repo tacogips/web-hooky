@@ -2,10 +2,15 @@
   "compilerOptions": {
     /* Language and Environment */
     "target": "ESNext",
-    "lib": ["ESNext"],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "types": ["bun-types"],
+
+    /* JSX - SolidJS admin UI; the bundle is compiled with babel-preset-solid
+       through the Bun plugin in src/admin-ui/build.ts. */
+    "jsx": "react-jsx",
+    "jsxImportSource": "solid-js",
 
     /* Emit */
     "declaration": true,
@@ -48,6 +53,6 @@
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "scripts/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

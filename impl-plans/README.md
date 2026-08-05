@@ -79,13 +79,19 @@ Large features are split into multiple related plans with cross-references.
 
 | Plan | Status | Design Reference | Last Updated |
 |------|--------|------------------|--------------|
-| (No active plans yet) | - | - | - |
+| (No active plans) | - | - | - |
 
 ## Completed Plans
 
 | Plan | Completed | Design Reference |
 |------|-----------|------------------|
-| (No completed plans yet) | - | - |
+| `completed/web-hooky-foundation.md` | 2026-08-05 | design-docs/specs/architecture.md#3-data-model |
+| `completed/web-hooky-server.md` | 2026-08-05 | design-docs/specs/architecture.md#1-request-lifecycle |
+| `completed/web-hooky-admin.md` | 2026-08-05 | design-docs/specs/architecture.md#7-admin-surface |
+| `completed/web-hooky-relay.md` | 2026-08-05 | design-docs/specs/architecture.md#6-relay-forwarding |
+| `completed/web-hooky-hardening.md` | 2026-08-05 | design-docs/specs/architecture.md#4-storage-adapters |
+| `completed/web-hooky-durability.md` | 2026-08-05 | design-docs/specs/architecture.md#6-relay-forwarding |
+| `completed/web-hooky-vendor-fidelity.md` | 2026-08-05 | design-docs/specs/architecture.md#2-addon-system |
 
 ## Phase Dependencies (for impl-exec-auto)
 
@@ -96,26 +102,29 @@ Only plans from eligible phases should be read to minimize context loading.
 
 | Phase | Status | Depends On |
 |-------|--------|------------|
-| 1 | READY | - |
-| 2 | BLOCKED | Phase 1 |
-| 3 | BLOCKED | Phase 2 |
-| 4 | BLOCKED | Phase 3 |
+| 1 | COMPLETED | - |
+| 2 | COMPLETED | Phase 1 |
+| 3 | COMPLETED | Phase 2 |
+| 4 | COMPLETED | Phase 3 |
 
 ### Phase to Plans Mapping
 
 ```
 PHASE_TO_PLANS = {
   1: [
-    # Add Phase 1 plan files here
+    "completed/web-hooky-foundation.md"
   ],
   2: [
-    # Add Phase 2 plan files here
+    "completed/web-hooky-server.md"
   ],
   3: [
-    # Add Phase 3 plan files here
+    "completed/web-hooky-admin.md"
   ],
   4: [
-    # Add Phase 4 plan files here
+    "completed/web-hooky-relay.md",
+    "completed/web-hooky-hardening.md",
+    "completed/web-hooky-durability.md",
+    "completed/web-hooky-vendor-fidelity.md"
   ]
 }
 ```

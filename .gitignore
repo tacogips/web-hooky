@@ -42,6 +42,9 @@ npm-debug.log*
 # Test coverage
 coverage/
 
+# Local runtime state (SQLite database, installed addon packages)
+data/
+
 # Temporary files
 tmp/
 temp/

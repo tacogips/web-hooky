@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>web-hooky admin</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      body {
+        margin: 0;
+        padding: 0 1.5rem 3rem;
+        max-width: 70rem;
+      }
+      header {
+        display: flex;
+        align-items: baseline;
+        gap: 1rem;
+        padding: 1rem 0;
+      }
+      nav button {
+        margin-right: 0.5rem;
+      }
+      nav button[aria-current="true"] {
+        font-weight: 700;
+        text-decoration: underline;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 0.75rem 0 1.5rem;
+      }
+      th,
+      td {
+        border: 1px solid #8884;
+        padding: 0.4rem 0.6rem;
+        text-align: left;
+        font-size: 0.9rem;
+        vertical-align: top;
+      }
+      code,
+      pre {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.85rem;
+      }
+      form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+        margin-bottom: 0.5rem;
+      }
+      input,
+      select,
+      textarea {
+        padding: 0.3rem 0.4rem;
+      }
+      textarea {
+        min-width: 22rem;
+        min-height: 3rem;
+      }
+      .error {
+        color: #b00020;
+        font-weight: 600;
+      }
+      .secret {
+        background: #ffd70033;
+        padding: 0.5rem;
+        border: 1px dashed #b8860b;
+        margin-bottom: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

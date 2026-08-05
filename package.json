@@ -1,7 +1,7 @@
 {
   "name": "web-hooky",
   "version": "0.1.0",
-  "description": "tr",
+  "description": "Self-hostable webhook destination server with a vendor addon system, pluggable storage, and a SolidJS admin UI",
   "type": "module",
   "main": "dist/main.js",
   "module": "dist/main.js",
@@ -15,11 +15,12 @@
   },
   "scripts": {
     "dev": "bun run --watch src/main.ts",
-    "build": "bun build src/main.ts --outdir dist --target bun",
+    "build": "bun run build:server && bun run build:ui",
+    "build:server": "bun build src/main.ts --outdir dist --target bun",
+    "build:ui": "bun run scripts/build-admin-ui.ts",
     "start": "bun run src/main.ts",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:ui": "vitest --ui",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
     "typecheck": "tsc --noEmit",
     "lint:biome": "biome check . --diagnostic-level=warn",
     "lint": "biome check . --diagnostic-level=warn && bun run typecheck",
@@ -32,13 +33,20 @@
     "type": "git",
     "url": "https://github.com/user/repo"
   },
-
   "license": "MIT",
   "trustedDependencies": [],
   "devDependencies": {
+    "@babel/core": "8.0.1",
+    "@babel/preset-typescript": "8.0.1",
+    "@biomejs/biome": "2.4.13",
+    "@happy-dom/global-registrator": "20.11.1",
+    "@types/babel__core": "7.20.5",
     "@types/bun": "1.1.14",
-    "@vitest/ui": "2.1.8",
-    "typescript": "5.7.2",
-    "vitest": "2.1.8"
+    "babel-preset-solid": "1.9.12",
+    "typescript": "5.7.2"
+  },
+  "dependencies": {
+    "fflate": "0.8.3",
+    "solid-js": "1.9.14"
   }
 }
