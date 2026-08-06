@@ -441,8 +441,16 @@ skipped.
 - Admin destination responses include `vendorConfig`, which holds the vendor webhook secret
   the administrator configured. This is intentional (the admin UI edits it) and is the reason
   the admin surface must sit behind the IdP proxy or admin API keys only.
-- There is no built-in rate limiting; put the deployment behind a proxy or CDN that provides
-  it.
+- Rate limiting: the Bun target has none built in - put it behind a proxy or CDN that
+  provides it. The Cloudflare target enforces a per-client-IP limit through the Workers
+  rate-limiting binding (`RATE_LIMITER`, checked before any routing; limiter outages fail
+  open). Counters are per Cloudflare edge server, so treat it as flood control per client,
+  not a hard global quota; volumetric attacks are absorbed by Cloudflare's always-on DDoS
+  mitigation in front of the Worker.
+- Bot management (Bot Fight Mode, WAF custom rules) is a Cloudflare zone feature: it needs a
+  custom domain, and it must exempt `/{addon}/*`, `/_get/*` and `/_ws/*`, whose legitimate
+  clients are machines. Challenge only the browser-facing `/_admin/` UI. See
+  `.agents/skills/cloudflare-deploy/SKILL.md`.
 - Relay targets are administrator-chosen, so only the URL scheme is constrained
   (`http:`/`https:`). Reaching internal addresses is therefore possible by design; treat
   admin access as equivalent to outbound request capability.

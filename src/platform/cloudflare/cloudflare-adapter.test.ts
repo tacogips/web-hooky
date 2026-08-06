@@ -18,6 +18,7 @@ import {
 } from "./d1-driver";
 import { createDurableObjectHub } from "./hub-proxy";
 import { STREAM_HUB_ROUTES, StreamHub } from "./stream-hub";
+import worker, { type Env } from "./worker";
 
 // ---------------------------------------------------------------------------
 // D1 driver
@@ -292,6 +293,94 @@ function streamHubWith(sockets: ReadonlyMap<FakeSocket, readonly string[]>) {
 function hubRequest(path: string, init?: RequestInit): Request {
   return new Request(`https://stream-hub.invalid${path}`, init);
 }
+
+// ---------------------------------------------------------------------------
+// Worker entry: rate limiting
+// ---------------------------------------------------------------------------
+
+function workerEnvironment(options: {
+  readonly limit?: (key: string) => Promise<{ success: boolean }>;
+}): Env {
+  return {
+    DB: fakeD1().db,
+    STREAM_HUB: {
+      idFromName: (name: string) => ({ name }),
+      get: () => ({
+        fetch: () => Promise.resolve(new Response("{}")),
+      }),
+    },
+    ASSETS: { fetch: () => Promise.resolve(new Response("asset")) },
+    ...(options.limit === undefined
+      ? {}
+      : {
+          RATE_LIMITER: {
+            limit: ({ key }) =>
+              options.limit?.(key) ?? Promise.resolve({ success: true }),
+          },
+        }),
+  };
+}
+
+const noopContext = { waitUntil(): void {} };
+
+describe("worker rate limiting", () => {
+  test("a denied client receives 429 and the limiter sees its edge IP", async () => {
+    const keys: string[] = [];
+    const env = workerEnvironment({
+      limit: (key) => {
+        keys.push(key);
+        return Promise.resolve({ success: false });
+      },
+    });
+    const response = await worker.fetch(
+      new Request("https://worker.test/_health", {
+        headers: { "cf-connecting-ip": "203.0.113.9" },
+      }),
+      env,
+      noopContext,
+    );
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("60");
+    const body = (await response.json()) as { error: { kind: string } };
+    expect(body.error.kind).toBe("rate_limited");
+    expect(keys).toEqual(["203.0.113.9"]);
+  });
+
+  test("an allowed client reaches the application", async () => {
+    const env = workerEnvironment({
+      limit: () => Promise.resolve({ success: true }),
+    });
+    const response = await worker.fetch(
+      new Request("https://worker.test/"),
+      env,
+      noopContext,
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ name: "web-hooky", status: "ok" });
+  });
+
+  test("a limiter outage fails open rather than serving errors", async () => {
+    const env = workerEnvironment({
+      limit: () => Promise.reject(new Error("limiter down")),
+    });
+    const response = await worker.fetch(
+      new Request("https://worker.test/"),
+      env,
+      noopContext,
+    );
+    expect(response.status).toBe(200);
+  });
+
+  test("a deployment without the binding is unlimited", async () => {
+    const env = workerEnvironment({});
+    const response = await worker.fetch(
+      new Request("https://worker.test/"),
+      env,
+      noopContext,
+    );
+    expect(response.status).toBe(200);
+  });
+});
 
 describe("StreamHub durable object", () => {
   test("broadcast sends the record frame to every socket", async () => {

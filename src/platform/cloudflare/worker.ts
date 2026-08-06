@@ -37,10 +37,17 @@ interface FetcherLike {
   fetch(request: Request): Promise<Response>;
 }
 
+/** The Workers rate-limiting binding surface this module uses. */
+export interface RateLimiterLike {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
+}
+
 export interface Env {
   readonly DB: D1DatabaseLike;
   readonly STREAM_HUB: DurableObjectNamespaceLike;
   readonly ASSETS: FetcherLike;
+  /** Optional so a deployment without the binding degrades to unlimited. */
+  readonly RATE_LIMITER?: RateLimiterLike;
   readonly [key: string]: unknown;
 }
 
@@ -198,12 +205,56 @@ function adminAssetRequest(request: Request, url: URL): Request {
   return new Request(target, request);
 }
 
+/**
+ * Per-client-IP flood control, checked before anything else so an abusive
+ * client cannot even trigger a runtime build or a D1 read.
+ *
+ * The legitimate clients of every public surface here are machines - vendor
+ * webhook senders, polling consumers, WebSocket subscribers - so browser-style
+ * bot challenges would break the application; the defences that fit are the
+ * signature checks in the pipeline, this limiter, and Cloudflare's always-on
+ * DDoS mitigation in front of it. `cf-connecting-ip` is set by Cloudflare's
+ * edge and cannot be forged by the caller. A limiter failure counts as
+ * allowed: losing rate limiting briefly is better than serving 500s.
+ */
+async function rateLimited(request: Request, env: Env): Promise<boolean> {
+  const limiter = env.RATE_LIMITER;
+  if (limiter === undefined) {
+    return false;
+  }
+  const clientIp = request.headers.get("cf-connecting-ip") ?? "unknown";
+  try {
+    const outcome = await limiter.limit({ key: clientIp });
+    return outcome.success === false;
+  } catch (error) {
+    console.warn("[web-hooky] rate limiter unavailable", error);
+    return false;
+  }
+}
+
+const RATE_LIMITED_RESPONSE_BODY = JSON.stringify({
+  error: {
+    kind: "rate_limited",
+    message: "Too many requests from this address; retry later",
+  },
+});
+
 export default {
   async fetch(
     request: Request,
     env: Env,
     ctx: ExecutionContextLike,
   ): Promise<Response> {
+    if (await rateLimited(request, env)) {
+      return new Response(RATE_LIMITED_RESPONSE_BODY, {
+        status: 429,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "retry-after": "60",
+        },
+      });
+    }
+
     let runtime: WebhookyRuntime;
     try {
       runtime = await runtimeFor(env, ctx);

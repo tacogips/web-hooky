@@ -35,6 +35,17 @@ class_name = "StreamHub"
 tag = "v1"
 new_sqlite_classes = ["StreamHub"]
 
+# Per-client-IP rate limiting, enforced in the Worker before any routing.
+# Cloudflare's always-on DDoS mitigation sits in front of workers.dev; this
+# binding adds application-level flood control on top of it. Zone features
+# (WAF rules, Bot Fight Mode) need a custom domain - see
+# .agents/skills/cloudflare-deploy/SKILL.md for how and for the webhook-path
+# exception they require.
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1001"
+simple = { limit = 300, period = 60 }
+
 # Workers has no in-process timers, so the retention sweeper and the relay
 # worker run from cron instead. WebhookyRuntime exposes both as plain methods
 # (sweepRetention / runRelayDeliveries) precisely so a scheduled trigger can
