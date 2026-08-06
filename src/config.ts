@@ -88,7 +88,7 @@ export const DEFAULT_CONFIG = {
 /** Addresses that are only reachable from the machine itself. */
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "::1", "localhost"]);
 
-const FLAG_TO_ENV: ReadonlyMap<string, string> = new Map([
+export const FLAG_TO_ENV: ReadonlyMap<string, string> = new Map([
   ["--host", "WEBHOOKY_HOST"],
   ["--port", "WEBHOOKY_PORT"],
   ["--db", "WEBHOOKY_DB_PATH"],
@@ -99,6 +99,12 @@ const FLAG_TO_ENV: ReadonlyMap<string, string> = new Map([
   ["--admin-subjects", "WEBHOOKY_ADMIN_SUBJECTS"],
   ["--admin-auth", "WEBHOOKY_ADMIN_AUTH"],
   ["--admin-auth-header", "WEBHOOKY_ADMIN_AUTH_HEADER"],
+  ["--admin-auth-shared-secret", "WEBHOOKY_ADMIN_AUTH_SHARED_SECRET"],
+  [
+    "--admin-auth-shared-secret-header",
+    "WEBHOOKY_ADMIN_AUTH_SHARED_SECRET_HEADER",
+  ],
+  ["--admin-dev-subject", "WEBHOOKY_ADMIN_DEV_SUBJECT"],
   ["--admin-allowed-origins", "WEBHOOKY_ADMIN_ALLOWED_ORIGINS"],
   ["--bootstrap-admin-key", "WEBHOOKY_ADMIN_BOOTSTRAP_KEY"],
   ["--max-body-bytes", "WEBHOOKY_MAX_BODY_BYTES"],
@@ -560,6 +566,9 @@ Flags:
   --admin-subjects <csv>         Seed admin identities
   --admin-auth <mode>            trusted-header | dev | disabled
   --admin-auth-header <name>     Identity header injected by the IdP proxy
+  --admin-auth-shared-secret <value>  Proxy shared secret; set when the origin is directly reachable
+  --admin-auth-shared-secret-header <name>  Header carrying the proxy shared secret
+  --admin-dev-subject <subject>  Identity used by the dev provider
   --admin-allowed-origins <csv>  Extra origins allowed for IdP-authenticated admin writes
   --bootstrap-admin-key <id:secret>  Seed an admin API key
   --max-body-bytes <n>           Inbound body cap (default ${DEFAULT_CONFIG.maxBodyBytes})

@@ -17,6 +17,14 @@
  * Authorization is *not* repeated here. It is checked in the Worker during the
  * handshake, exactly as `server/app.ts` does locally; this object is reachable
  * only from the Worker, never from the internet.
+ *
+ * Backpressure differs from the in-process hub by design. Locally the hub
+ * enforces a per-socket buffered-bytes ceiling and hangs up slow subscribers
+ * (`server/ws.ts`); here that job belongs to the Workers runtime, which caps
+ * outgoing message size and applies its own flow control to hibernating
+ * sockets, and a `send()` to a subscriber the runtime has given up on throws
+ * and is dropped below. Re-implementing the byte ceiling on top of that would
+ * require the DO to track queued bytes the runtime already tracks.
  */
 import type { PublicRecord } from "../../storage/types";
 import { SocketCloseCode } from "../../server/ws";

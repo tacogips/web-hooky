@@ -24,7 +24,7 @@ generation:
 - objects: `properties`, `required`, `additionalProperties`, `patternProperties`,
   `minProperties`, `maxProperties`
 - arrays: `items`, `minItems`, `maxItems`, `uniqueItems`
-- strings: `minLength`, `maxLength`, `pattern`, `format` (`date-time`, `email`, `uuid`, `uri`)
+- strings: `minLength`, `maxLength`, `pattern`, `format` (`date-time`, `date`, `email`, `uuid`, `uri`)
 - numbers: `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `multipleOf`
 - combinators: `allOf`, `anyOf`, `oneOf`, `not`
 - boolean schemas (`true` / `false`)
@@ -75,7 +75,7 @@ archives. Guards applied before anything is written to disk:
 | SQL | `bun:sqlite` `SqlDriver` | new `SqlDriver` over D1 / Turso / RDS Data API |
 | Cache | in-memory `CacheAdapter` | KV / Redis `CacheAdapter` |
 | WebSocket | `Bun.serve` websocket handlers | Durable Objects / API Gateway WS |
-| Addon upload | unpack to disk + dynamic `import()` | not available; ship addons in the bundle |
+| Addon upload | unpack to disk + dynamic `import()` | `POST /_admin/api/addons` answers `501 not_implemented`; ship addons in the bundle |
 | Retention sweeper | `setInterval` | scheduled worker / cron trigger calling `sweepExpiredRecords` |
 | Relay worker | `setInterval` | scheduled worker / cron trigger calling `runRelayDeliveries` |
 

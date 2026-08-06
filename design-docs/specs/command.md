@@ -35,12 +35,16 @@ bun run dev                     # watch mode
 | `--admin-subjects <csv>` | string | (empty) | Seed IdP subjects allowed into the admin surface |
 | `--admin-auth <mode>` | enum | `trusted-header` | `trusted-header` \| `dev` \| `disabled` |
 | `--admin-auth-header <name>` | string | `cf-access-authenticated-user-email` | Identity header injected by the IdP proxy |
+| `--admin-auth-shared-secret <value>` | string | (unset) | Proxy shared secret; set whenever the origin is directly reachable |
+| `--admin-auth-shared-secret-header <name>` | string | `x-webhooky-proxy-secret` | Header carrying the proxy shared secret |
+| `--admin-dev-subject <subject>` | string | `dev@localhost` | Identity used by the `dev` provider |
 | `--admin-allowed-origins <csv>` | string | (empty) | Extra origins accepted for IdP-authenticated admin writes |
 | `--bootstrap-admin-key <id:secret>` | string | (unset) | Seeds an admin API key on startup |
 | `--max-body-bytes <n>` | number | `1048576` | Inbound webhook body cap |
 | `--default-limit <n>` | number | `100` | `_get` default `limit` |
 | `--max-limit <n>` | number | `1000` | `_get` `limit` ceiling |
 | `--cache-ttl <seconds>` | number | `30` | Hot-lookup cache TTL |
+| `--ws-max-buffered-bytes <n>` | number | `1048576` | Per-subscriber WebSocket send-buffer ceiling |
 | `--relay-interval <seconds>` | number | `5` | Relay worker poll period; `0` disables the in-process timer |
 | `--relay-batch <n>` | number | `20` | Deliveries claimed per poll |
 | `--relay-max-backoff <seconds>` | number | `3600` | Retry backoff ceiling |
@@ -87,6 +91,7 @@ bound to a non-loopback address in `trusted-header` mode without a shared secret
 | `WEBHOOKY_MAX_FETCH_LIMIT` | no | `1000` | `_get` limit ceiling |
 | `WEBHOOKY_ADMIN_ALLOWED_ORIGINS` | no | (empty) | Comma-separated extra origins for admin writes |
 | `WEBHOOKY_CACHE_TTL_SECONDS` | no | `30` | Hot-lookup cache TTL |
+| `WEBHOOKY_WS_MAX_BUFFERED_BYTES` | no | `1048576` | Per-subscriber WebSocket send-buffer ceiling |
 | `WEBHOOKY_RELAY_POLL_INTERVAL_SECONDS` | no | `5` | Relay worker period, `0` disables |
 | `WEBHOOKY_RELAY_BATCH_SIZE` | no | `20` | Deliveries claimed per poll |
 | `WEBHOOKY_RELAY_MAX_BACKOFF_SECONDS` | no | `3600` | Retry backoff ceiling |

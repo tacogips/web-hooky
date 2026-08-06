@@ -356,18 +356,71 @@ src/
   server/       router, responses, webhook/fetch/ws handlers, static UI serving
   admin/        auth providers, admin API handlers
   admin-ui/     SolidJS SPA sources plus its Babel/Bun build plugin
+  platform/     deployment targets; nothing under here is imported by the core
+    cloudflare/ Workers entry, D1 SqlDriver, StreamHub Durable Object, hub proxy
   test-support/ harness used by the integration tests
   types/        ambient declarations for untyped dependencies
   config.ts     configuration loading
-  runtime.ts    dependency wiring, seeding, sweeper lifecycle
+  runtime-core.ts  platform-agnostic wiring (registry, seeding, sweeper, relay)
+  runtime.ts    the Bun target: bun:sqlite, in-process hub, disk-loaded addons
   main.ts       CLI entry point
 scripts/
   build-admin-ui.ts   writes the admin UI bundle into dist/admin-ui
+migrations/     the schema as D1 migrations (wrangler d1 migrations apply)
+wrangler.toml   Cloudflare Workers deployment configuration
 ```
 
 Every source file stays below the 1000-line Biome limit.
 
-### 9. Security Notes
+### 9. Deployment Targets
+
+The core (`pipeline/`, `schema/`, `addons/`, `server/`, `admin/`, `relay/`,
+`storage/` above the driver) is platform-free. `runtime-core.ts` wires it from a
+set of adapters (`RuntimeCoreParts`); each target supplies those adapters and
+nothing else:
+
+| Part | Bun (`runtime.ts`) | Cloudflare (`platform/cloudflare/worker.ts`) |
+|------|--------------------|----------------------------------------------|
+| `SqlDriver` | `bun:sqlite`, FIFO-serialized | D1 (`d1-driver.ts`) |
+| WebSocket hub | in-process (`server/ws.ts`) | per-destination `StreamHub` Durable Object via `hub-proxy.ts` |
+| Sweeper / relay worker | in-process timers | cron trigger calling `sweepRetention()` / `runRelayDeliveries()` |
+| Admin UI assets | directory on disk | Workers Assets binding |
+| Addon package install | unpack + dynamic `import()` | **not possible**: `POST /_admin/api/addons` answers `501 not_implemented` |
+| Schema | applied at startup (`persistence.init()`) | `wrangler d1 migrations apply` (`migrations/`) |
+
+Platform isolation is structural, not conditional: a bundler resolves import
+specifiers whether or not the code runs, so `bun:sqlite` may appear only in
+modules the Workers bundle never reaches (`storage/sqlite/bun-adapter.ts`,
+`bun-driver.ts`, `runtime.ts`, `main.ts`).
+
+**D1 constraint - no interactive transactions.** D1 auto-commits every
+statement; its only transactional primitive is `batch()`, whose statements must
+be known up front. `SqlDriver.transaction()` therefore *throws* on D1 rather
+than degrading to a sequence of auto-committed statements, and every operation
+that needs read-and-claim atomicity is a single statement instead:
+
+- `records.queryAndMark` - `UPDATE ... WHERE id IN (window) AND fetched = 0
+  ... RETURNING`; the `fetched = 0` predicate makes the claim exclusive, so two
+  concurrent `only_unfetched` readers cannot receive the same record.
+- `relayDeliveries.claimDue` - `UPDATE ... WHERE id IN (SELECT ... LIMIT ?)
+  ... RETURNING`, so two workers cannot claim the same delivery.
+- `relayDeliveries.requeueFailed` - a plain `UPDATE`, counted via the driver's
+  affected-rows report.
+
+These single-statement forms run identically on `bun:sqlite`, so the local
+target carries no separate code path.
+
+**Durable Object stream hub.** One `StreamHub` per destination
+(`idFromName(destinationId)`) owns that destination's `/_ws/` sockets, tracked
+with the WebSocket hibernation API so an evicted object does not lose its
+members. Sockets are tagged with the authorizing `apiUserId`; revoking a user
+closes its sockets by tag across every granted destination. Authorization stays
+in the Worker (same helpers, same order as the local router). Backpressure is
+delegated to the Workers runtime rather than re-implementing the local
+byte-ceiling; a socket the runtime has given up on throws on `send` and is
+skipped.
+
+### 10. Security Notes
 
 - Vendor signature verification happens before any parsing or persistence.
 - Constant-time comparison for every secret and signature check.

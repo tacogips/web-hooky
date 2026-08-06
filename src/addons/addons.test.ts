@@ -374,6 +374,77 @@ describe("wrike addon", () => {
 });
 
 describe("github addon", () => {
+  test("reports a missing webhook secret as a server error", async () => {
+    const result = await githubAddon.module.authenticate?.(
+      requestContext({ config: {}, headers: {} }),
+    );
+    expect(result?.ok).toBe(false);
+    if (result?.ok === false) {
+      expect(result.status).toBe(500);
+    }
+  });
+
+  test("rejects a missing signature header", async () => {
+    const result = await githubAddon.module.authenticate?.(
+      requestContext({ config: { secret: "gh" }, headers: {} }),
+    );
+    expect(result?.ok).toBe(false);
+    if (result?.ok === false) {
+      expect(result.status).toBe(401);
+    }
+  });
+
+  test("rejects a signature without the sha256= prefix", async () => {
+    const body = JSON.stringify({ action: "opened" });
+    const result = await githubAddon.module.authenticate?.(
+      requestContext({
+        rawBody: body,
+        config: { secret: "gh" },
+        // A bare hex HMAC, valid but missing GitHub's mandatory prefix.
+        headers: { "x-hub-signature-256": await hmacSha256Hex("gh", body) },
+      }),
+    );
+    expect(result?.ok).toBe(false);
+  });
+
+  test("wraps the payload with the event header", () => {
+    const output = githubAddon.module.transform?.(
+      { action: "opened", number: 7 },
+      {
+        headers: { "x-github-event": "pull_request" },
+        config: {},
+        destinationId: "dest-1",
+        addonName: "github",
+        receivedAt: 42,
+      },
+    );
+    expect(output).toEqual({
+      source: "github",
+      event: "pull_request",
+      receivedAt: 42,
+      payload: { action: "opened", number: 7 },
+    });
+  });
+
+  test("labels the event unknown when the header is absent", () => {
+    const output = githubAddon.module.transform?.(
+      { zen: "Design for failure." },
+      {
+        headers: {},
+        config: {},
+        destinationId: "dest-1",
+        addonName: "github",
+        receivedAt: 43,
+      },
+    );
+    expect(output).toEqual({
+      source: "github",
+      event: "unknown",
+      receivedAt: 43,
+      payload: { zen: "Design for failure." },
+    });
+  });
+
   test("verifies the sha256 signature header", async () => {
     const body = JSON.stringify({ action: "opened" });
     const signature = `sha256=${await hmacSha256Hex("gh", body)}`;
