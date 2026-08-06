@@ -6,7 +6,7 @@ import { hmacSha256Hex, newUuid } from "../core/ids";
 import { createFixedClock } from "../core/time";
 import type { PersistenceAdapter } from "../storage/persistence";
 import { sweepExpiredRecords } from "../storage/retention";
-import { createBunSqlitePersistence } from "../storage/sqlite/adapter";
+import { createBunSqlitePersistence } from "../storage/sqlite/bun-adapter";
 import {
   RelayDeliveryStatus,
   type DestinationRecord,

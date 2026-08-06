@@ -1,32 +1,32 @@
 /**
- * Runtime wiring: builds every adapter, seeds admin access, registers addons,
- * and manages the retention sweeper lifecycle.
+ * Bun runtime target.
+ *
+ * Supplies the adapters that only a long-running process with a writable
+ * filesystem can provide - `bun:sqlite` persistence, in-memory cache, the
+ * in-process WebSocket hub and addon packages loaded from disk - and hands them
+ * to the platform-agnostic wiring in `runtime-core.ts`.
+ *
+ * The Bun-only imports live here and nowhere else: `bun:sqlite` cannot be
+ * resolved in a Workers bundle, so the Workers target must not reach this
+ * module even transitively.
  */
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { loadInstalledAddon } from "./addons/loader";
-import { BUILTIN_ADDONS } from "./addons/builtin/registry";
-import { createAddonRegistry, type AddonRegistry } from "./addons/registry";
-import { createAdminAuthProvider } from "./admin/auth-provider";
+import type { LoadedAddon } from "./addons/types";
 import type { AppConfig } from "./config";
 import type { AppError } from "./core/errors";
 import { errors } from "./core/errors";
-import { err, getErrorMessage, ok, type Result } from "./core/result";
-import { type Clock, systemClock } from "./core/time";
+import { err, getErrorMessage, type Result } from "./core/result";
+import type { Clock } from "./core/time";
 import type { FetchLike } from "./relay/dispatch";
-import { createRelayWorker, type RelayRunResult } from "./relay/worker";
-import { createApp, type WebhookyApp } from "./server/app";
-import type { AppContext } from "./server/context";
-import { hashSecret } from "./server/credentials";
+import { createRuntimeCore, type WebhookyRuntime } from "./runtime-core";
 import { createWebSocketHub } from "./server/ws";
 import { createMemoryCache, type CacheAdapter } from "./storage/cache";
 import type { PersistenceAdapter } from "./storage/persistence";
-import {
-  createRetentionSweeper,
-  type RetentionSweepResult,
-} from "./storage/retention";
-import { createBunSqlitePersistence } from "./storage/sqlite/adapter";
-import { AdminRole } from "./storage/types";
+import { createBunSqlitePersistence } from "./storage/sqlite/bun-adapter";
+
+export type { WebhookyRuntime } from "./runtime-core";
 
 export interface RuntimeOverrides {
   readonly persistence?: PersistenceAdapter;
@@ -36,16 +36,6 @@ export interface RuntimeOverrides {
   readonly relayFetch?: FetchLike;
 }
 
-export interface WebhookyRuntime {
-  readonly app: WebhookyApp;
-  readonly context: AppContext;
-  /** Runs one retention sweep; reports what it deleted. */
-  sweepRetention(): Promise<RetentionSweepResult>;
-  /** Drains one batch of relay deliveries. */
-  runRelayDeliveries(): Promise<RelayRunResult>;
-  shutdown(): Promise<void>;
-}
-
 async function ensureDirectories(config: AppConfig): Promise<void> {
   if (config.dbPath !== ":memory:") {
     await mkdir(dirname(config.dbPath), { recursive: true });
@@ -53,68 +43,24 @@ async function ensureDirectories(config: AppConfig): Promise<void> {
   await mkdir(config.addonsDir, { recursive: true });
 }
 
-async function registerInstalledAddons(
+/** Loads every addon package recorded in persistence from the addons dir. */
+async function loadInstalledAddons(
   config: AppConfig,
   persistence: PersistenceAdapter,
-  registry: AddonRegistry,
   onWarning: (message: string) => void,
-): Promise<void> {
-  const installed = await persistence.addons.list();
-  for (const record of installed) {
-    const loaded = await loadInstalledAddon(config.addonsDir, record);
-    if (loaded.ok === false) {
+): Promise<readonly LoadedAddon[]> {
+  const loaded: LoadedAddon[] = [];
+  for (const record of await persistence.addons.list()) {
+    const addon = await loadInstalledAddon(config.addonsDir, record);
+    if (addon.ok === false) {
       onWarning(
-        `Skipping installed addon "${record.name}": ${loaded.error.message}`,
+        `[web-hooky] Skipping installed addon "${record.name}": ${addon.error.message}`,
       );
       continue;
     }
-    const registered = registry.register(loaded.value);
-    if (registered.ok === false) {
-      onWarning(
-        `Skipping installed addon "${record.name}": ${registered.error.message}`,
-      );
-    }
+    loaded.push(addon.value);
   }
-}
-
-async function seedAdminAccess(
-  config: AppConfig,
-  persistence: PersistenceAdapter,
-  clock: Clock,
-): Promise<Result<null, AppError>> {
-  for (const subject of config.adminSubjects) {
-    await persistence.adminUsers.upsert({
-      subject,
-      role: AdminRole.Admin,
-      createdAt: clock.nowSeconds(),
-    });
-  }
-
-  if (config.bootstrapAdminKey === null) {
-    return ok(null);
-  }
-  const separator = config.bootstrapAdminKey.indexOf(":");
-  const keyId = config.bootstrapAdminKey.slice(0, separator);
-  const secret = config.bootstrapAdminKey.slice(separator + 1);
-  if (keyId.length === 0 || secret.length === 0) {
-    return err(
-      errors.badRequest(
-        "Bootstrap admin key must use the form <keyId>:<secret>",
-      ),
-    );
-  }
-  const existing = await persistence.adminKeys.findById(keyId);
-  if (existing !== null) {
-    return ok(null);
-  }
-  await persistence.adminKeys.create({
-    id: keyId,
-    label: "bootstrap",
-    secretHash: await hashSecret(secret),
-    enabled: true,
-    createdAt: clock.nowSeconds(),
-  });
-  return ok(null);
+  return loaded;
 }
 
 /** Builds a fully wired runtime from configuration. */
@@ -122,8 +68,6 @@ export async function createRuntime(
   config: AppConfig,
   overrides: RuntimeOverrides = {},
 ): Promise<Result<WebhookyRuntime, AppError>> {
-  const clock = overrides.clock ?? systemClock;
-
   try {
     await ensureDirectories(config);
   } catch (error) {
@@ -134,9 +78,12 @@ export async function createRuntime(
     );
   }
 
+  const clock = overrides.clock;
   const persistence =
     overrides.persistence ?? createBunSqlitePersistence(config.dbPath);
-  const cache = overrides.cache ?? createMemoryCache(() => clock.nowMs());
+  const cache =
+    overrides.cache ??
+    createMemoryCache(() => (clock ?? { nowMs: () => Date.now() }).nowMs());
 
   try {
     await persistence.init();
@@ -148,77 +95,24 @@ export async function createRuntime(
     );
   }
 
-  const registry = createAddonRegistry(BUILTIN_ADDONS);
-  await registerInstalledAddons(config, persistence, registry, (message) => {
-    console.warn(`[web-hooky] ${message}`);
-  });
+  const warn = (message: string): void => {
+    console.warn(message);
+  };
+  const installedAddons = await loadInstalledAddons(config, persistence, warn);
 
-  const seeded = await seedAdminAccess(config, persistence, clock);
-  if (seeded.ok === false) {
-    return err(seeded.error);
-  }
-
-  const hub = createWebSocketHub((error) => {
-    console.warn("[web-hooky] websocket send failed", error);
-  });
-
-  const context: AppContext = {
-    config,
+  return createRuntimeCore(config, {
     persistence,
     cache,
-    registry,
-    hub,
-    adminAuth: createAdminAuthProvider(config),
-    clock,
-  };
-
-  const sweeper = createRetentionSweeper(
-    persistence,
-    clock,
-    {
-      defaultRetentionSeconds: config.retentionSeconds,
-      sweepIntervalSeconds: config.retentionSweepIntervalSeconds,
-    },
-    (error) => {
-      console.warn("[web-hooky] retention sweep failed", error);
-    },
-  );
-  sweeper.start();
-
-  const relayWorker = createRelayWorker({
-    persistence,
-    clock,
-    options: {
-      pollIntervalSeconds: config.relay.pollIntervalSeconds,
-      batchSize: config.relay.batchSize,
-      maxBackoffSeconds: config.relay.maxBackoffSeconds,
-      leaseSeconds: config.relay.leaseSeconds,
-      parkSeconds: config.relay.parkSeconds,
-    },
+    hub: createWebSocketHub((error) => {
+      console.warn("[web-hooky] websocket send failed", error);
+    }),
+    ...(clock === undefined ? {} : { clock }),
     ...(overrides.relayFetch === undefined
       ? {}
-      : { fetchImpl: overrides.relayFetch }),
-    onError: (error) => {
-      console.warn("[web-hooky] relay delivery failed", error);
-    },
-  });
-  relayWorker.start();
-
-  return ok({
-    app: createApp(context),
-    context,
-    sweepRetention: (): Promise<RetentionSweepResult> => sweeper.sweep(),
-    runRelayDeliveries: (): Promise<RelayRunResult> => relayWorker.runOnce(),
-    async shutdown(): Promise<void> {
-      sweeper.stop();
-      relayWorker.stop();
-      hub.closeAll();
-      // Storage must stay open until background work has recorded its result:
-      // closing first would lose the outcome of a delivery whose POST already
-      // succeeded, and the lease would hand it to the next process to re-send.
-      await Promise.all([relayWorker.drain(), sweeper.drain()]);
-      await cache.close();
-      await persistence.close();
-    },
+      : { relayFetch: overrides.relayFetch }),
+    installedAddons,
+    backgroundTimers: true,
+    canInstallAddons: true,
+    onWarning: warn,
   });
 }

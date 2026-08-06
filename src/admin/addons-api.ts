@@ -293,6 +293,15 @@ export async function handleAddonsApi(
       });
     }
     if (request.method === "POST") {
+      if (ctx.canInstallAddons === false) {
+        return errorResponse(
+          errors.notImplemented(
+            "This deployment cannot install addon packages: it has no writable " +
+              "filesystem and cannot import a module at runtime. Only built-in " +
+              "addons are available; ship additional addons in the bundle.",
+          ),
+        );
+      }
       return uploadAddon(ctx, request, principal);
     }
     return errorResponse(

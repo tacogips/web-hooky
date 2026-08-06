@@ -12,6 +12,7 @@ export enum AppErrorKind {
   Conflict = "conflict",
   PayloadTooLarge = "payload_too_large",
   UnprocessableEntity = "unprocessable_entity",
+  NotImplemented = "not_implemented",
   Internal = "internal",
 }
 
@@ -49,6 +50,8 @@ export function statusForErrorKind(kind: AppErrorKind): number {
       return 413;
     case AppErrorKind.UnprocessableEntity:
       return 422;
+    case AppErrorKind.NotImplemented:
+      return 501;
     case AppErrorKind.Internal:
       return 500;
     default: {
@@ -76,6 +79,9 @@ export const errors = {
     appError(AppErrorKind.PayloadTooLarge, message),
   unprocessable: (message: string, details?: JsonValue): AppError =>
     appError(AppErrorKind.UnprocessableEntity, message, details),
+  /** The deployment target cannot provide this capability at all. */
+  notImplemented: (message: string): AppError =>
+    appError(AppErrorKind.NotImplemented, message),
   internal: (message: string): AppError =>
     appError(AppErrorKind.Internal, message),
 } as const;

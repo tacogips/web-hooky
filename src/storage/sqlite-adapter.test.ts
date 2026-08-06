@@ -3,7 +3,7 @@ import { createFixedClock } from "../core/time";
 import { cacheKeys, createMemoryCache } from "./cache";
 import type { PersistenceAdapter } from "./persistence";
 import { sweepExpiredRecords } from "./retention";
-import { createBunSqlitePersistence } from "./sqlite/adapter";
+import { createBunSqlitePersistence } from "./sqlite/bun-adapter";
 import {
   AdminRole,
   RelayDeliveryStatus,

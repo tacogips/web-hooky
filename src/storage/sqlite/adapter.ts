@@ -13,7 +13,6 @@ import {
   createInstalledAddonStore,
 } from "./admin-store";
 import { createApiUserStore } from "./api-user-store";
-import { createBunSqliteDriver } from "./bun-driver";
 import { createDestinationStore } from "./destination-store";
 import { createRecordStore } from "./record-store";
 import { createRelayDeliveryStore, createRelayStore } from "./relay-store";
@@ -43,9 +42,4 @@ export function createSqlPersistenceAdapter(
       return driver.close();
     },
   };
-}
-
-/** Convenience factory for the local Bun runtime. */
-export function createBunSqlitePersistence(path: string): PersistenceAdapter {
-  return createSqlPersistenceAdapter(createBunSqliteDriver(path));
 }
