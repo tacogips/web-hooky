@@ -81,6 +81,28 @@ tasks:
     cmds:
       - bun run clean
 
+  clients-test:
+    desc: Run every client's unit tests (skips a client whose toolchain is absent)
+    cmds:
+      - cmd: |
+          set -e
+          if command -v go >/dev/null 2>&1; then
+            (cd clients/go && go test ./...)
+          else echo "skipping go: no toolchain"; fi
+          if [ -x clients/python/.venv/bin/python ]; then
+            (cd clients/python && .venv/bin/python -m pytest -q)
+          else echo "skipping python: create clients/python/.venv first"; fi
+          (cd clients/node && bun test && bunx tsc --noEmit)
+          if command -v swift >/dev/null 2>&1; then
+            (cd clients/swift && env -u SDKROOT -u DEVELOPER_DIR \
+              -u MACOSX_DEPLOYMENT_TARGET swift test)
+          else echo "skipping swift: no toolchain"; fi
+
+  clients-smoke:
+    desc: Drive every client's CLI against a real server
+    cmds:
+      - ./clients/scripts/smoke.sh
+
   ci:
     desc: Run all CI checks
     cmds:

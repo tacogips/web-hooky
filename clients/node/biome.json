@@ -1,0 +1,56 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.13/schema.json",
+  "root": false,
+  "files": {
+    "includes": ["src/**/*.ts", "test/**/*.ts"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 80
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "complexity": {
+        "useLiteralKeys": "off"
+      },
+      "nursery": {
+        "noExcessiveLinesPerFile": {
+          "level": "error",
+          "options": {
+            "maxLines": 1000,
+            "skipBlankLines": false
+          }
+        }
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double"
+    }
+  },
+  "assist": {
+    "enabled": false,
+    "actions": {
+      "source": {
+        "organizeImports": "off"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.test.ts"],
+      "linter": {
+        "rules": {
+          "nursery": {
+            "noExcessiveLinesPerFile": "off"
+          }
+        }
+      }
+    }
+  ]
+}

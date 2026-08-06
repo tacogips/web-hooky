@@ -31,6 +31,24 @@ WEBHOOKY_ADMIN_SUBJECTS=dev@localhost \
 
 The server listens on `http://127.0.0.1:8787` by default.
 
+### Clients
+
+Official clients in **Swift**, **Python**, **Node** and **Go** live under
+[`clients/`](clients/README.md). Each is a library and a `webhooky` CLI over the same three
+surfaces - reading records, streaming them, and administration - with the same command names
+and the same `WEBHOOKY_*` environment variables in every language.
+
+```bash
+export WEBHOOKY_URL=https://hooks.example.com
+export WEBHOOKY_CREDENTIAL=<keyId>:<secret> WEBHOOKY_FETCH_UUID=<fetchUuid>
+
+webhooky records get --only-unfetched --limit 50
+webhooky records stream | jq '.payload'
+```
+
+Library configuration is always explicit - no client library reads the environment - so an
+embedding application decides where credentials come from.
+
 ### Deployment targets
 
 - **Bun** uses the local SQLite adapter and supports runtime addon uploads.
@@ -221,7 +239,12 @@ bun run build         # server bundle + admin UI
 task ci               # everything above
 ```
 
+```bash
+clients/scripts/smoke.sh   # every client's CLI against a real server
+```
+
 Configuration reference: `design-docs/specs/command.md`.
+Client contract: `design-docs/specs/clients.md`.
 Architecture and data model: `design-docs/specs/architecture.md`.
 Design decisions and portability notes: `design-docs/specs/notes.md`.
 Implementation plans: `impl-plans/`.

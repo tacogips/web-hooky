@@ -1,0 +1,22 @@
+# Per-client build and dependency output. Each client is an independent
+# package with its own toolchain, so their artifacts are ignored here rather
+# than in the repository root.
+
+# Python
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+dist/
+build/
+
+# Node
+node_modules/
+dist/
+
+# Swift
+.build/
+.swiftpm/
+
+# Go
+bin/

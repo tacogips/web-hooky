@@ -1,0 +1,44 @@
+{
+  "name": "@web-hooky/client",
+  "version": "0.1.0",
+  "description": "Client library and CLI for a web-hooky server",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "webhooky": "./bin/webhooky.js"
+  },
+  "files": ["dist", "bin", "README.md"],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "lint": "biome check . --diagnostic-level=warn",
+    "format": "biome format --write ."
+  },
+  "keywords": ["webhook", "web-hooky", "client", "cli"],
+  "homepage": "https://github.com/tacogips/web-hooky",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tacogips/web-hooky",
+    "directory": "clients/node"
+  },
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/bun": "1.1.14",
+    "@types/node": "22.10.2",
+    "typescript": "5.7.2"
+  }
+}
