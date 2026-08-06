@@ -31,6 +31,13 @@ WEBHOOKY_ADMIN_SUBJECTS=dev@localhost \
 
 The server listens on `http://127.0.0.1:8787` by default.
 
+### Deployment targets
+
+- **Bun** uses the local SQLite adapter and supports runtime addon uploads.
+- **Cloudflare Workers** uses D1, a Durable Object WebSocket hub, Workers Assets, and
+  cron-driven relay and retention work. See [README-cloudflare.md](README-cloudflare.md) for
+  setup, deployment, security, and operational guidance.
+
 ### Issue a destination
 
 ```bash
@@ -218,3 +225,7 @@ Configuration reference: `design-docs/specs/command.md`.
 Architecture and data model: `design-docs/specs/architecture.md`.
 Design decisions and portability notes: `design-docs/specs/notes.md`.
 Implementation plans: `impl-plans/`.
+
+## License
+
+web-hooky is available under the [MIT License](LICENSE).

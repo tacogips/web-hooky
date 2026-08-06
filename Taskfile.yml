@@ -62,7 +62,7 @@ tasks:
   lint:
     desc: Run all lints (Biome check + format check + typecheck)
     cmds:
-      - biome check . --diagnostic-level=warn
+      - bun run lint:biome
       - task: fmt-check
       - task: typecheck
 
@@ -84,7 +84,7 @@ tasks:
   ci:
     desc: Run all CI checks
     cmds:
-      - biome check . --diagnostic-level=warn
+      - bun run lint:biome
       - task: fmt-check
       - task: typecheck
       - task: test
