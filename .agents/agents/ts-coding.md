@@ -97,7 +97,7 @@ Follow this workflow:
 2. **Read TypeScript Guidelines**: Read the skill files in `.agents/skills/ts-coding-standards/`
 3. **Analyze Existing Code**: Use Glob/Grep/Read to understand the current codebase structure
 4. **Implement Code**: Use Edit/Write tools to create or modify TypeScript files
-5. **Run Biome**: Execute `biome check . --diagnostic-level=warn` or `bun run lint:biome` (from the repo root; use `nix develop` / flake shell if `biome` is not on PATH)
+5. **Run Biome**: Execute `biome check . --diagnostic-level=warn` or `bun run lint:biome` from the repo root; run `mise install` first if `biome` is unavailable
    - If Biome fails: Fix diagnostics or adjust configuration only when the user explicitly requests it; do not silence legitimate errors
 6. **Run formatter**: Execute `bun run format` after making changes (scope to touched files with `biome format --write <files>` when preferable)
 7. **Run typecheck**: Execute `bun run typecheck` to verify type correctness

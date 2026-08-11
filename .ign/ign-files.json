@@ -88,8 +88,6 @@
     "impl-plans/templates/plan-template.md",
     "mise.toml",
     "package.json",
-    "src/lib.test.ts",
-    "src/lib.ts",
     "src/main.ts",
     "tsconfig.json"
   ]

@@ -35,7 +35,7 @@ Apply these standards when:
 
 After modifying TypeScript under `src/` or `vitest.config.ts`:
 
-1. Run **`biome check . --diagnostic-level=warn`** (or **`bun run lint:biome`**, which sets that threshold). Use Biome from `nix develop` / flake devShell, or `bunx biome ...` when the platform binary works.
+1. Run **`biome check . --diagnostic-level=warn`** (or **`bun run lint:biome`**, which sets that threshold). Run `mise install` first if Biome is unavailable.
 2. Run **`bun run typecheck`**.
 3. Run **`bun run test`** (or the subset relevant to the change).
 4. Run Biome formatting when you touch formatted paths: **`bun run format`** or `biome format --write` on the files you edited.

@@ -86,7 +86,7 @@ Summary: Updated CreateUserUseCase logic.
 
 - Run Biome lint (`biome check . --diagnostic-level=warn`, or `bun run lint:biome`)
 - Run Vitest tests and TypeScript type checks
-- Execute Taskfile test and check targets (if available)
+- Execute mise test and check tasks (if available)
 - Filter and run specific test suites or individual tests
 - Parse test output and type errors to identify failure patterns
 - Verify that modifications don't break existing functionality or type safety
@@ -103,7 +103,7 @@ If Biome, tests, or type checks fail:
 
 1. **First, verify command correctness**: Re-check this agent's prompt to confirm you are using the correct lint/test/check commands
 
-   - Confirm `biome check . --diagnostic-level=warn` (or `bun run lint:biome`), typecheck, and test commands match the project's conventions (including Taskfile targets such as `task lint` / `task ci` when applicable)
+   - Confirm `biome check . --diagnostic-level=warn` (or `bun run lint:biome`), typecheck, and test commands match the project's conventions (including mise tasks such as `mise run lint` / `mise run ci` when applicable)
 
 2. **Only proceed to code analysis if commands are correct**: If the error persists after confirming correct commands:
 
@@ -242,14 +242,14 @@ This is useless because:
 ### For Linting (Biome)
 
 1. **Biome (Rust linter, repo root)**: `biome check . --diagnostic-level=warn` (infos are omitted; **warnings and errors** are the usual fix targets)
-   - Use `nix develop` / flake devShell when `biome` is not on PATH (for example on NixOS); otherwise rely on `task lint` / `bun run lint` which includes Biome with this threshold
+   - Run `mise install` when `biome` is not on PATH; otherwise rely on `mise run lint` / `bun run lint`, which includes Biome with this threshold
    - Failures at **error** level must be reported in full to the calling agent
 
 ### For Type Checking
 
 1. **TypeScript type check**: `bun run typecheck` or `tsc --noEmit`
    - Fast type check without producing output
-2. **If Taskfile available**: `task typecheck` or `task lint` (lint runs Biome, Prettier check, then typecheck)
+2. **If mise tasks are available**: `mise run typecheck` or `mise run lint` (lint runs Biome, formatting checks, then typecheck)
 
 ### For Testing
 
@@ -257,7 +257,7 @@ This is useless because:
 2. **Specific file**: `vitest run src/usecase/userService.test.ts`
 3. **Verbose output**: `vitest run --reporter=verbose` when debugging failures
 4. **Watch mode**: `vitest` or `vitest --watch` for continuous testing
-5. **If Taskfile available**: Check for `task test` target
+5. **If mise tasks are available**: Check for `mise run test`
 
 ### Test Commands
 
@@ -388,4 +388,4 @@ Output:
 - Understand project structure from AGENTS.md
 - Follow TypeScript testing conventions
 - Use appropriate testing strategies per module
-- Check for Taskfile targets for project-specific commands
+- Check for mise tasks for project-specific commands
