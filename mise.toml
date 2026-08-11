@@ -1,0 +1,149 @@
+min_version = "2026.8.3"
+
+[[hooks.enter]]
+shell = "bash"
+script = '''
+if command -v kinko >/dev/null 2>&1 && kinko hook --help >/dev/null 2>&1; then
+  eval "$(kinko --path "$MISE_PROJECT_ROOT" hook enter bash)"
+fi
+'''
+
+[[hooks.leave]]
+shell = "bash"
+script = '''
+if command -v kinko >/dev/null 2>&1 && kinko hook --help >/dev/null 2>&1; then
+  eval "$(kinko hook leave bash)"
+fi
+'''
+
+[tools]
+bun = "latest"
+biome = "latest"
+gitleaks = "latest"
+pre-commit = "latest"
+
+[tasks."default"]
+description = "Show available tasks"
+run = '''
+mise tasks ls
+'''
+
+[tasks."install"]
+description = "Install dependencies"
+run = '''
+bun install
+'''
+
+[tasks."dev"]
+description = "Run in development mode with watch"
+run = '''
+bun run dev
+'''
+
+[tasks."build"]
+description = "Build the server bundle and the admin UI"
+run = '''
+bun run build
+'''
+
+[tasks."build-ui"]
+description = "Build the SolidJS admin UI into dist/admin-ui"
+run = '''
+bun run build:ui
+'''
+
+[tasks."start"]
+description = "Run the application"
+run = '''
+bun run start
+'''
+
+[tasks."test"]
+description = "Run tests with bun test"
+run = '''
+bun run test
+'''
+
+[tasks."test-watch"]
+description = "Run tests in watch mode with bun test"
+run = '''
+bun run test:watch
+'''
+
+[tasks."typecheck"]
+description = "Run TypeScript type checking"
+run = '''
+bun run typecheck
+'''
+
+[tasks."fmt"]
+description = "Format code with Biome"
+run = '''
+bun run format
+'''
+
+[tasks."fmt-check"]
+description = "Check code formatting"
+run = '''
+bun run format:check
+'''
+
+[tasks."lint"]
+description = "Run all lints (Biome check + format check + typecheck)"
+run = '''
+bun run lint:biome
+mise run fmt-check
+mise run typecheck
+'''
+
+[tasks."gitleaks"]
+description = "Scan staged changes for secrets before commit"
+run = '''
+gitleaks git --pre-commit --redact --staged --verbose
+'''
+
+[tasks."install-git-hooks"]
+description = "Install the mise-managed pre-commit hook configuration"
+run = '''
+pre-commit install --install-hooks
+'''
+
+[tasks."clean"]
+description = "Clean build artifacts"
+run = '''
+bun run clean
+'''
+
+[tasks."clients-test"]
+description = "Run every client's unit tests (skips a client whose toolchain is absent)"
+run = '''
+set -e
+if command -v go >/dev/null 2>&1; then
+  (cd clients/go && go test ./...)
+else echo "skipping go: no toolchain"; fi
+if [ -x clients/python/.venv/bin/python ]; then
+  (cd clients/python && .venv/bin/python -m pytest -q)
+else echo "skipping python: create clients/python/.venv first"; fi
+(cd clients/node && bun test && bunx tsc --noEmit)
+if command -v swift >/dev/null 2>&1; then
+  (cd clients/swift && env -u SDKROOT -u DEVELOPER_DIR \
+    -u MACOSX_DEPLOYMENT_TARGET swift test)
+else echo "skipping swift: no toolchain"; fi
+
+'''
+
+[tasks."clients-smoke"]
+description = "Drive every client's CLI against a real server"
+run = '''
+./clients/scripts/smoke.sh
+'''
+
+[tasks."ci"]
+description = "Run all CI checks"
+run = '''
+bun run lint:biome
+mise run fmt-check
+mise run typecheck
+mise run test
+mise run build
+'''

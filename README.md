@@ -236,7 +236,7 @@ bun test              # unit + integration tests
 bun run typecheck     # tsc --noEmit
 bun run lint:biome    # biome check
 bun run build         # server bundle + admin UI
-task ci               # everything above
+mise run ci               # everything above
 ```
 
 ```bash

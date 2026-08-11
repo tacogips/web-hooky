@@ -28,11 +28,8 @@ bun.lockb
 .DS_Store
 Thumbs.db
 
-# Nix
-.direnv/
-result
-result-*
-/.pre-commit-config.yaml
+# Local mise overrides
+mise.local.toml
 
 # Logs
 logs/
@@ -54,5 +51,4 @@ temp/
 impl-plans/.progress.lock
 
 # Private files
-**/.envrc.private*
 .private*/

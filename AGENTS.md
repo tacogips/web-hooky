@@ -129,24 +129,22 @@ feat: implement user authentication system
 
 ## Project Overview
 
-This is web-hooky - a TypeScript project with Bun runtime and Nix flake development environment support.
+This is web-hooky - a TypeScript project with Bun runtime and mise-managed development environment.
 
 ## Development Environment
 - **Language**: TypeScript
 - **Runtime**: Bun
-- **Build Tool**: Bun (with go-task for automation)
-- **Environment Manager**: Nix flakes + direnv
-- **Development Shell**: Run `nix develop` or use direnv to activate
+- **Build Tool**: Bun, with mise as the task runner
+- **Environment Manager**: mise
+- **Tool Setup**: Run `mise install`
 
 ## Project Structure
 ```
 .
-├── flake.nix          # Nix flake configuration for TypeScript/Bun development
-├── flake.lock         # Locked flake dependencies
+├── mise.toml          # Tool versions and project tasks
 ├── package.json       # Package manifest
 ├── bun.lockb          # Bun lock file
 ├── tsconfig.json      # TypeScript configuration (maximum strictness)
-├── .envrc             # direnv configuration
 ├── src/               # Source code
 │   ├── main.ts        # Entry point
 │   ├── lib.ts         # Library code
@@ -159,7 +157,7 @@ This is web-hooky - a TypeScript project with Bun runtime and Nix flake developm
 - `tsc` - TypeScript compiler
 - `typescript-language-server` - TypeScript language server (LSP)
 - `biome` - Code formatter and linter
-- `task` - Task runner (go-task)
+- `mise` - Tool manager and task runner
 
 ## TypeScript Code Development
 
@@ -258,8 +256,8 @@ When implementing from a plan:
 5. When all tasks complete, move plan to `impl-plans/completed/`
 
 ## Task Management
-- Use `task` command for build automation
-- Define tasks in `Taskfile.yml` (to be created as needed)
+- Use `mise run` for build automation
+- Define tasks in `mise.toml` (to be created as needed)
 
 ## Git Workflow
 - Create meaningful commit messages
@@ -312,8 +310,7 @@ Example subtask format:
 ```
 
 ## Notes
-- This project uses Nix flakes for reproducible development environments
-- Use direnv for automatic environment activation
-- Private environment variables should be managed in `tacogips/kinko` and loaded via `kinko direnv export`; `.envrc.private` is not sourced by default
-- All development dependencies are managed through flake.nix
+- This project uses mise for reproducible development environments
+- Run secret-dependent commands through `kinko exec`; never commit secret values.
+- All development tools and tasks are managed through mise.toml
 - Runtime is Bun, which provides fast TypeScript execution and built-in testing
