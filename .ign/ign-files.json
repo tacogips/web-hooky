@@ -69,7 +69,6 @@
     ".agents/skills/ts-review/SKILL.md",
     ".claude",
     ".gitignore",
-    ".pre-commit-config.yaml",
     "AGENTS.md",
     "CLAUDE.md",
     "biome.json",
