@@ -165,3 +165,7 @@ PHASE_TO_PLANS = {
 - Always update progress log after each session
 - **Keep each plan file under 400 lines** - split if necessary
 - **Always keep PROGRESS.json in sync** with plan file statuses
+
+## Runtime security maintenance
+
+- [Node runtime security](node-runtime-security.md): patched Node.js engine requirements for the published client.
